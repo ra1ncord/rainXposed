@@ -48,7 +48,8 @@ class Main : Module(), IXposedHookLoadPackage, IXposedHookZygoteInit {
         CacheModule,
         FontsModule,
         ThemesModule,
-        SysColorsModule
+        SysColorsModule,
+        BubbleModule
     )
 
     init {
