@@ -12,8 +12,8 @@ android {
         applicationId = "dev.raincord.xposed"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1000
-        versionName = "1.0.0"
+        versionCode = 1100
+        versionName = "1.1.0"
     }
 
     buildTypes {
