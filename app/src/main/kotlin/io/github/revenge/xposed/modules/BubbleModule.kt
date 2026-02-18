@@ -15,6 +15,7 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import io.github.revenge.xposed.Module
+import io.github.revenge.xposed.modules.bridge.BridgeModule
 import io.github.revenge.xposed.px
 
 object BubbleModule : Module() {
@@ -34,6 +35,37 @@ object BubbleModule : Module() {
 
     override fun onLoad(param: XC_LoadPackage.LoadPackageParam) {
         if (param.packageName != "com.discord") return
+
+        BridgeModule.registerMethod("bubbles.hook") {
+            hookBubbles()
+            null
+        }
+
+        BridgeModule.registerMethod("bubbles.unhook") {
+            unhookBubbles()
+            null
+        }
+
+        BridgeModule.registerMethod("bubbles.configure") {
+            val avatarRadius = it.getOrNull(0) as? Number
+            val bubbleRadius = it.getOrNull(1) as? Number
+            val bubbleColor = it.getOrNull(2) as? Number
+
+            configure(avatarRadius?.toFloat(), bubbleRadius?.toFloat(), bubbleColor?.toInt())
+            null
+        }
+
+        BridgeModule.registerMethod("bubbles.revenge") {
+            val method = it.getOrNull(0) as? String
+            val args = it.getOrNull(1) as? Array<*>
+
+            XposedBridge.log("[BubbleModule] Revenge called: $method with ${args?.size ?: 0} args")
+            null
+        }
+
+        BridgeModule.registerMethod("bubbles.registerCallback") {
+            null
+        }
 
         val messageViewClassName = "com.discord.chat.presentation.message.MessageView"
         val messageViewClass = XposedHelpers.findClassIfExists(messageViewClassName, param.classLoader)
@@ -148,6 +180,18 @@ object BubbleModule : Module() {
     }
 
     fun hookBubbles() {
-        // Already hooked in onLoad
+    }
+
+    fun unhookBubbles() {
+        configureAccessoriesMarginHook?.unhook()
+        configureAccessoriesMarginHook = null
+        configureAuthorHook?.unhook()
+        configureAuthorHook = null
+    }
+
+    fun configure(avatarRadius: Float? = null, bubbleRadius: Float? = null, bubbleColor: Int? = null) {
+        avatarRadius?.let { avatarCurveRadius = it }
+        bubbleRadius?.let { bubbleCurveRadius = it }
+        bubbleColor?.let { chatBubbleColor = it }
     }
 }
