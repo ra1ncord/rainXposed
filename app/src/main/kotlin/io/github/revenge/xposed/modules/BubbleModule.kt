@@ -18,13 +18,19 @@ import io.github.revenge.xposed.Module
 import io.github.revenge.xposed.modules.bridge.BridgeModule
 import io.github.revenge.xposed.px
 
+// TODO:
+// - Disable this module being force enabled (used for testing)
+// - How to patch message content???
+// - Make it work with bubble plugin on bundle side. I am not going to do this
+
 object BubbleModule : Module() {
     private var configureAccessoriesMarginHook: XC_MethodHook.Unhook? = null
     private var configureAuthorHook: XC_MethodHook.Unhook? = null
+    private var hooksEnabled = true
 
     private val DEFAULT_AVATAR_CURVE_RADIUS = 12.px.toFloat()
     private val DEFAULT_BUBBLE_CURVE_RADIUS = 12.px.toFloat()
-    private val DEFAULT_BUBBLE_COLOR = 0x66000000
+    private val DEFAULT_BUBBLE_COLOR = 0x66000000.toInt()
     private val PADDING_SMALL = 6.px
     private val PADDING_MEDIUM = 8.px
     private val PADDING_LARGE = 12.px
@@ -72,42 +78,52 @@ object BubbleModule : Module() {
 
         if (messageViewClass == null) {
             XposedBridge.log("[BubbleModule] MessageView class not found")
+            findAlternativeMessageClasses(param.classLoader)
             return
         }
 
+        XposedBridge.log("[BubbleModule] Found MessageView: $messageViewClass")
+
         try {
-            configureAccessoriesMarginHook = XposedHelpers.findAndHookMethod(
-                messageViewClassName,
-                param.classLoader,
-                "configureAccessoriesMargin",
-                object : XC_MethodHook() {
+            val methods = messageViewClass.declaredMethods
+            val configureAccessoriesMarginMethod = methods.find { it.name == "configureAccessoriesMargin" }
+            val configureAuthorMethod = methods.find { it.name == "configureAuthor" }
+
+            if (configureAccessoriesMarginMethod != null) {
+                XposedBridge.log("[BubbleModule] configureAccessoriesMargin signature: ${configureAccessoriesMarginMethod.parameterTypes.joinToString()}")
+                XposedBridge.log("[BubbleModule] Hooking configureAccessoriesMargin...")
+                configureAccessoriesMarginHook = XposedBridge.hookMethod(configureAccessoriesMarginMethod, object : XC_MethodHook() {
                     override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam) {
+                        if (!hooksEnabled) return
                         val binding = XposedHelpers.getObjectField(param.thisObject, "binding")
                         val accessoriesView = binding?.javaClass?.getField("accessoriesView")?.get(binding) as? ViewGroup
                         accessoriesView?.let { adjustMarginsForAccessories(it) }
                     }
-                }
-            )
-        } catch (e: Throwable) {
-            XposedBridge.log("[BubbleModule] Failed to hook configureAccessoriesMargin: ${e.message}")
-        }
+                })
+                XposedBridge.log("[BubbleModule] configureAccessoriesMargin hooked!")
+            } else {
+                XposedBridge.log("[BubbleModule] configureAccessoriesMargin method not found")
+            }
 
-        try {
-            configureAuthorHook = XposedHelpers.findAndHookMethod(
-                messageViewClassName,
-                param.classLoader,
-                "configureAuthor",
-                object : XC_MethodHook() {
+            if (configureAuthorMethod != null) {
+                XposedBridge.log("[BubbleModule] configureAuthor signature: ${configureAuthorMethod.parameterTypes.joinToString()}")
+                XposedBridge.log("[BubbleModule] Hooking configureAuthor...")
+                configureAuthorHook = XposedBridge.hookMethod(configureAuthorMethod, object : XC_MethodHook() {
                     override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam) {
+                        if (!hooksEnabled) return
                         XposedBridge.log("[BubbleModule] configureAuthor called")
                         val view = param.thisObject as ViewGroup
                         applyRoundedSquareProfilePicture(view)
                         applyBubbleChat(view)
                     }
-                }
-            )
+                })
+                XposedBridge.log("[BubbleModule] configureAuthor hooked!")
+            } else {
+                XposedBridge.log("[BubbleModule] configureAuthor method not found")
+            }
         } catch (e: Throwable) {
-            XposedBridge.log("[BubbleModule] Failed to hook configureAuthor: ${e.message}")
+            XposedBridge.log("[BubbleModule] Failed to hook methods: ${e.message}")
+            e.printStackTrace()
         }
     }
 
@@ -122,24 +138,36 @@ object BubbleModule : Module() {
     }
 
     private fun applyRoundedSquareProfilePicture(viewGroup: ViewGroup) {
-        viewGroup.children.filterIsInstance<ImageView>().firstOrNull()?.apply {
+        val imageView = viewGroup.children.filterIsInstance<ImageView>().firstOrNull()
+        if (imageView == null) {
+            return
+        }
+        imageView.apply {
             clipToOutline = true
             outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(view: View?, outline: Outline?) {
                     outline?.setRoundRect(0, 0, view!!.width, view.height, avatarCurveRadius)
                 }
             }
+            translationY = 4.px.toFloat()
         }
     }
 
     private fun applyBubbleChat(viewGroup: ViewGroup) {
-        val linearLayout = viewGroup.children.filterIsInstance<LinearLayout>().firstOrNull { v -> v.children.any { c -> c.javaClass.simpleName == "ConstraintLayout" } } as? ViewGroup ?: return
+        val linearLayout = viewGroup.children.filterIsInstance<LinearLayout>().firstOrNull { v -> v.children.any { c -> c.javaClass.simpleName == "ConstraintLayout" } }
+        if (linearLayout == null) {
+            return
+        }
+
         applyBubbleBackground(viewGroup, linearLayout)
     }
 
     private fun applyBubbleBackground(viewGroup: ViewGroup, linearLayout: ViewGroup) {
-        val messageHeader = linearLayout.children.firstOrNull { c -> c.javaClass.simpleName == "ConstraintLayout" } as? ViewGroup ?: return
-        val headerVisible = messageHeader.children.firstOrNull()?.visibility != View.GONE
+        val messageHeader = linearLayout.children.firstOrNull { c -> c.javaClass.simpleName == "ConstraintLayout" }
+        if (messageHeader == null) {
+            return
+        }
+        val headerVisible = messageHeader.visibility != View.GONE
 
         if (headerVisible) {
             linearLayout.setBubbleBackground(0, start = true, end = false)
@@ -155,12 +183,28 @@ object BubbleModule : Module() {
     }
 
     private fun setAccessoryBubbleBackground(accessoriesView: ViewGroup, start: Boolean) {
-        val messageAccessoriesDecoration = accessoriesView.javaClass.getDeclaredField("messageAccessoriesDecoration").apply { isAccessible = true }.get(accessoriesView)
-        val leftMarginPx = messageAccessoriesDecoration.javaClass.getDeclaredField("leftMarginPx").apply { isAccessible = true }.get(messageAccessoriesDecoration) as Int
+        try {
+            val messageAccessoriesDecoration = accessoriesView.javaClass.getDeclaredField("messageAccessoriesDecoration").apply { isAccessible = true }.get(accessoriesView)
+            val leftMarginPx = try {
+                messageAccessoriesDecoration.javaClass.getDeclaredField("leftMarginPx").apply { isAccessible = true }.get(messageAccessoriesDecoration) as? Int
+            } catch (e: NoSuchFieldException) {
+                try {
+                    messageAccessoriesDecoration.javaClass.getDeclaredField("leftMargin").apply { isAccessible = true }.get(messageAccessoriesDecoration) as? Int
+                } catch (e: NoSuchFieldException) {
+                    try {
+                        messageAccessoriesDecoration.javaClass.getDeclaredField("startMargin").apply { isAccessible = true }.get(messageAccessoriesDecoration) as? Int
+                    } catch (e: NoSuchFieldException) {
+                        return
+                    }
+                }
+            } ?: return
 
-        accessoriesView.setBubbleBackground(leftMarginPx, start, true)
-        accessoriesView.setPadding(PADDING_LARGE, if (start) PADDING_MEDIUM else 0, PADDING_SMALL, PADDING_MEDIUM)
-        accessoriesView.translationX = -PADDING_SMALL.toFloat()
+            accessoriesView.setBubbleBackground(leftMarginPx, start, true)
+            accessoriesView.setPadding(PADDING_LARGE, if (start) PADDING_MEDIUM else 0, PADDING_SMALL, PADDING_MEDIUM)
+            accessoriesView.translationX = -PADDING_SMALL.toFloat()
+        } catch (e: Throwable) {
+            XposedBridge.log("[BubbleModule] setAccessoryBubbleBackground failed: ${e.message}")
+        }
     }
 
     private fun ViewGroup.setBubbleBackground(leftMargin: Int, start: Boolean, end: Boolean) {
@@ -180,18 +224,38 @@ object BubbleModule : Module() {
     }
 
     fun hookBubbles() {
+        hooksEnabled = true
     }
 
     fun unhookBubbles() {
-        configureAccessoriesMarginHook?.unhook()
-        configureAccessoriesMarginHook = null
-        configureAuthorHook?.unhook()
-        configureAuthorHook = null
+        hooksEnabled = false
     }
 
     fun configure(avatarRadius: Float? = null, bubbleRadius: Float? = null, bubbleColor: Int? = null) {
         avatarRadius?.let { avatarCurveRadius = it }
         bubbleRadius?.let { bubbleCurveRadius = it }
         bubbleColor?.let { chatBubbleColor = it }
+    }
+
+    private fun findAlternativeMessageClasses(classLoader: ClassLoader) {
+        val potentialClasses = listOf(
+            "com.discord.chat.presentation.message.",
+            "com.discord.chat.presentation.view.",
+            "com.discord.chat.view.",
+            "com.discord.presentation.",
+        )
+        val suffixes = listOf("MessageView", "ChatMessageView", "MessageItemView", "MessageRowView")
+
+        for (pkg in potentialClasses) {
+            for (suffix in suffixes) {
+                val className = "$pkg$suffix"
+                val clazz = XposedHelpers.findClassIfExists(className, classLoader)
+                if (clazz != null) {
+                    XposedBridge.log("[BubbleModule] Found class: $className")
+                    val methods = clazz.declaredMethods.map { it.name }.distinct()
+                    XposedBridge.log("[BubbleModule]   Methods: $methods")
+                }
+            }
+        }
     }
 }
