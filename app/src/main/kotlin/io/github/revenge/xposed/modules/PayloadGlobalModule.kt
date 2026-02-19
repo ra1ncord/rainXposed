@@ -16,7 +16,7 @@ import java.io.File
 // TODO: Remove this redundant module and merge its functionality into AdditionalBridgeMethodsModule if needed
 class PayloadGlobalModule(private val modules: List<Module>) : Module() {
     private companion object {
-        const val GLOBAL_NAME = "__PYON_LOADER__"
+        const val GLOBAL_NAME = "__RAIN_LOADER__"
     }
 
     private fun getPayloadString(): String = JSON.encodeToString(

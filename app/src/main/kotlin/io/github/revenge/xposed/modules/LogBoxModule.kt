@@ -487,7 +487,7 @@ object LogBoxModule : Module() {
 
     private fun showCustomBundleDialog(context: Context) {
         val colors = getM3Colors()
-        val filesDir = File(context.filesDir, "pyoncord")
+        val filesDir = File(context.filesDir, "raincord")
         val configFile = File(filesDir, "loader_config.json")
         var currentUrl: String? = null
         var isEnabled = false
@@ -843,9 +843,9 @@ object LogBoxModule : Module() {
 
     private fun refetchBundle(context: Context) {
         try {
-            val pyoncordDir = getPyoncordDirectory(context)
-            val bundleFile = File(pyoncordDir, "bundle.js")
-            val backupFile = File(pyoncordDir, "bundle.js.backup")
+            val raincordDir = getPyoncordDirectory(context)
+            val bundleFile = File(raincordDir, "bundle.js")
+            val backupFile = File(raincordDir, "bundle.js.backup")
 
             if (bundleFile.exists()) {
                 backupFile.delete()
@@ -862,7 +862,7 @@ object LogBoxModule : Module() {
     }
 
     private fun getPyoncordDirectory(context: Context): File {
-        val dir = File(context.filesDir, "pyoncord")
+        val dir = File(context.filesDir, "raincord")
         if (!dir.exists()) {
             dir.mkdirs()
         }
