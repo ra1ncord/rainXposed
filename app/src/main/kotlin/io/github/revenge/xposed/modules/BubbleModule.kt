@@ -1,5 +1,6 @@
 package io.github.revenge.xposed.modules
 
+import android.content.Context
 import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
@@ -39,39 +40,28 @@ object BubbleModule : Module() {
     private var bubbleCurveRadius = DEFAULT_BUBBLE_CURVE_RADIUS
     private var chatBubbleColor = DEFAULT_BUBBLE_COLOR
 
-    override fun onLoad(param: XC_LoadPackage.LoadPackageParam) {
-        if (param.packageName != "com.discord") return
-
+    override fun onContext(context: Context) {
         BridgeModule.registerMethod("bubbles.hook") {
             hookBubbles()
             null
         }
-
+    
         BridgeModule.registerMethod("bubbles.unhook") {
             unhookBubbles()
             null
         }
-
+    
         BridgeModule.registerMethod("bubbles.configure") {
             val avatarRadius = it.getOrNull(0) as? Number
             val bubbleRadius = it.getOrNull(1) as? Number
             val bubbleColor = it.getOrNull(2) as? Number
-
             configure(avatarRadius?.toFloat(), bubbleRadius?.toFloat(), bubbleColor?.toInt())
             null
         }
+    }
 
-        BridgeModule.registerMethod("bubbles.rain") {
-            val method = it.getOrNull(0) as? String
-            val args = it.getOrNull(1) as? Array<*>
-
-            XposedBridge.log("[BubbleModule] Revenge called: $method with ${args?.size ?: 0} args")
-            null
-        }
-
-        BridgeModule.registerMethod("bubbles.registerCallback") {
-            null
-        }
+    override fun onLoad(param: XC_LoadPackage.LoadPackageParam) {
+        if (param.packageName != "com.discord") return
 
         val messageViewClassName = "com.discord.chat.presentation.message.MessageView"
         val messageViewClass = XposedHelpers.findClassIfExists(messageViewClassName, param.classLoader)
