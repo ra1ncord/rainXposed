@@ -26,7 +26,7 @@ import io.github.revenge.xposed.px
 object BubbleModule : Module() {
     private var configureAccessoriesMarginHook: XC_MethodHook.Unhook? = null
     private var configureAuthorHook: XC_MethodHook.Unhook? = null
-    private var hooksEnabled = true
+    private var hooksEnabled = false
 
     private val DEFAULT_AVATAR_CURVE_RADIUS = 12.px.toFloat()
     private val DEFAULT_BUBBLE_CURVE_RADIUS = 12.px.toFloat()
@@ -194,7 +194,12 @@ object BubbleModule : Module() {
                     try {
                         messageAccessoriesDecoration.javaClass.getDeclaredField("startMargin").apply { isAccessible = true }.get(messageAccessoriesDecoration) as? Int
                     } catch (e: NoSuchFieldException) {
-                        return
+                        try {
+                            val messageMargins = messageAccessoriesDecoration.javaClass.getDeclaredField("margins").apply { isAccessible = true }.get(messageAccessoriesDecoration)
+                            messageMargins.javaClass.getDeclaredField("leftMarginPx").apply { isAccessible = true }.get(messageMargins) as? Int
+                        } catch (e: NoSuchFieldException) {
+                            return
+                        }
                     }
                 }
             } ?: return
