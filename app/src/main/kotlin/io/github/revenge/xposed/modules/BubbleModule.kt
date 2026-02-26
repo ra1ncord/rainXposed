@@ -61,7 +61,7 @@ object BubbleModule : Module() {
             null
         }
 
-        BridgeModule.registerMethod("bubbles.revenge") {
+        BridgeModule.registerMethod("bubbles.rain") {
             val method = it.getOrNull(0) as? String
             val args = it.getOrNull(1) as? Array<*>
 
