@@ -18,11 +18,9 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 import io.github.revenge.xposed.Module
 import io.github.revenge.xposed.modules.bridge.BridgeModule
 import io.github.revenge.xposed.px
-
-// TODO:
-// - Disable this module being force enabled (used for testing)
-// - How to patch message content???
-// - Make it work with bubble plugin on bundle side. I am not going to do this
+import android.os.Build
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
 
 object BubbleModule : Module() {
     private var configureAccessoriesMarginHook: XC_MethodHook.Unhook? = null
@@ -230,6 +228,12 @@ object BubbleModule : Module() {
         avatarRadius?.let { avatarCurveRadius = it }
         bubbleRadius?.let { bubbleCurveRadius = it }
         bubbleColor?.let { chatBubbleColor = it }
+    }
+
+    private fun isChatBubblesSupported() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+
+    override fun buildPayload(builder: JsonObjectBuilder) {
+        builder.put("isChatBubblesSupported", JsonPrimitive(isChatBubblesSupported()))
     }
 
     private fun findAlternativeMessageClasses(classLoader: ClassLoader) {
