@@ -27,6 +27,8 @@ object BubbleModule : Module() {
     private var configureAuthorHook: XC_MethodHook.Unhook? = null
     private var hooksEnabled = false
 
+    private var hooked = false
+
     private val DEFAULT_AVATAR_CURVE_RADIUS = 12.px.toFloat()
     private val DEFAULT_BUBBLE_CURVE_RADIUS = 12.px.toFloat()
     private val DEFAULT_BUBBLE_COLOR = 0x66000000.toInt()
@@ -59,7 +61,7 @@ object BubbleModule : Module() {
     }
 
     override fun onLoad(param: XC_LoadPackage.LoadPackageParam) {
-        if (param.packageName != "com.discord") return
+        if (hooked) return
 
         val messageViewClassName = "com.discord.chat.presentation.message.MessageView"
         val messageViewClass = XposedHelpers.findClassIfExists(messageViewClassName, param.classLoader)
@@ -109,6 +111,8 @@ object BubbleModule : Module() {
             } else {
                 XposedBridge.log("[BubbleModule] configureAuthor method not found")
             }
+
+            hooked = true
         } catch (e: Throwable) {
             XposedBridge.log("[BubbleModule] Failed to hook methods: ${e.message}")
             e.printStackTrace()
