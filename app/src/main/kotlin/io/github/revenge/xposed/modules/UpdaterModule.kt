@@ -68,14 +68,31 @@ object UpdaterModule : Module() {
             if (configFile.exists()) JSON.decodeFromString<LoaderConfig>(configFile.readText()) else LoaderConfig()
         }.getOrDefault(LoaderConfig())
 
-        BridgeModule.registerMethod("revenge.updater.clear") {
+        BridgeModule.registerMethod("updater.clear") {
             if (bundle.exists()) bundle.delete()
             if (etag.exists()) etag.delete()
             null
         }
+
+        BridgeModule.registerMethod("updater.download") {
+            scope.launch { downloadScript(showUpdateDialog = false, isExplicit = true).join() }
+            null
+        }
+        
+        BridgeModule.registerMethod("updater.reload") {
+            scope.launch {
+                downloadScript(showUpdateDialog = false, isExplicit = true).join()
+                withContext(Dispatchers.Main) { reloadApp() }
+            }
+            null
+        }
     }
 
-    fun downloadScript(activity: Activity? = null, showUpdateDialog: Boolean = true): Job = scope.launch {
+    fun downloadScript(activity: Activity? = null, showUpdateDialog: Boolean = true, isExplicit: Boolean = false): Job = scope.launch {
+        if (!isExplicit && !config.customLoadUrl.enabled && bundle.exists()) {
+            return@launch
+        }
+
         try {
             HttpClient(CIO) {
                 expectSuccess = false
