@@ -156,20 +156,22 @@ object BubbleModule : Module() {
 
     private fun applyBubbleBackground(viewGroup: ViewGroup, linearLayout: ViewGroup) {
         val messageHeader = linearLayout.children.firstOrNull { c -> c.javaClass.simpleName == "ConstraintLayout" }
-        if (messageHeader == null) {
-            return
-        }
-        val headerVisible = messageHeader.visibility != View.GONE
+
+        val headerVisible = messageHeader != null && (messageHeader as? ViewGroup)?.children?.any { it.visibility == View.VISIBLE } == true
+
+        val hasAccessories = viewGroup.children.any { it.javaClass.simpleName == "MessageAccessoriesView" }
 
         if (headerVisible) {
-            linearLayout.setBubbleBackground(0, start = true, end = false)
-            linearLayout.setPadding(PADDING_LARGE, PADDING_MEDIUM, 0, 0)
+            linearLayout.setBubbleBackground(0, start = true, end = !hasAccessories)
+            linearLayout.setPadding(PADDING_LARGE, PADDING_MEDIUM, 0, if (!hasAccessories) PADDING_MEDIUM else 0)
             linearLayout.translationX = -PADDING_SMALL.toFloat()
         } else {
+            linearLayout.background = null
             linearLayout.setPadding(0, 0, 0, 0)
+            linearLayout.translationX = 0f
         }
 
-        viewGroup.children.firstOrNull { i -> i.javaClass.simpleName == "MessageAccessoriesView" }?.let { accessoriesView ->
+        viewGroup.children.firstOrNull { it.javaClass.simpleName == "MessageAccessoriesView" }?.let { accessoriesView ->
             setAccessoryBubbleBackground(accessoriesView as ViewGroup, !headerVisible)
         }
     }
